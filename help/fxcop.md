@@ -2,24 +2,22 @@
 
 This article is an extension to the [getting started guide](gettingstarted.html). You will improve the same Calculator sample with a task for [FxCop](http://msdn2.microsoft.com/en-us/library/bb429476.aspx).
 
+If you need more details please see the [API docs for the FxCop](apidocs/fake-fxcophelper.html) task.
+
 ## Setting up FxCop
 
 Open *build.fsx* from your Calculator sample folder and add a new target *FxCop* to the targets section:
 
-	Target "FxCop" (fun () ->
-	  let assemblies = 
-		!+ (buildDir + @"\**\*.dll") 
-		  ++ (buildDir + @"\**\*.exe") 
-		  |> Scan  
-
-	  FxCop 
-		(fun p -> 
-		  {p with 
-			// override default parameters
-			ReportFileName = testDir + "FXCopResults.xml";
-			ToolPath = "FxCopCmd.exe"})
-		assemblies 
-	)
+    Target "FxCop" (fun () ->  
+        !! (buildDir + @"\**\*.dll") 
+        ++ (buildDir + @"\**\*.exe") 
+        |> FxCop 
+            (fun p -> 
+                {p with 
+                  // override default parameters
+                  ReportFileName = testDir + "FXCopResults.xml"
+                  ToolPath = "FxCopCmd.exe"})
+    )
 
 In the dependencies section modify the build order to:
 
@@ -40,20 +38,17 @@ That's it. If you run your build script you will get new *.xml file in the *./te
 
 If you want to let the build fail in the case that FxCop reports any errors or warnings you can use the *FailOnError* parameter:
 
-	Target "FxCop" (fun () ->
-	  let assemblies = 
-		!+ (buildDir + @"\**\*.dll") 
-		  ++ (buildDir + @"\**\*.exe") 
-		  |> Scan  
-
-	  FxCop 
-		(fun p -> 
-		  {p with 
-			// override default parameters
-			ReportFileName = testDir + "FXCopResults.xml";
-			FailOnError = FxCopErrorLevel.CriticalWarning;
-			ToolPath = "FxCopCmd.exe"})
-		assemblies 
+    Target "FxCop" (fun () ->  
+        !! (buildDir + @"\**\*.dll") 
+        ++ (buildDir + @"\**\*.exe") 
+        |> FxCop 
+            (fun p -> 
+                {p with 
+                  // override default parameters
+                  ReportFileName = testDir + "FXCopResults.xml"
+                  FailOnError = FxCopErrorLevel.CriticalWarning
+                  ToolPath = "FxCopCmd.exe"})
+    )
 
 ![alt text](pics/fxcop/report.png "Fail on FxCop error")
 

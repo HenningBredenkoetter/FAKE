@@ -97,7 +97,7 @@ namespace Test.FAKECore.FileHandling
         /// <returns></returns>
         public static List<string> Scan(string pattern)
         {
-            return Scan(pattern, FileSetHelper.DefaultBaseDir);
+            return Scan(pattern, Path.GetFullPath("."));
         }
 
 
@@ -111,10 +111,7 @@ namespace Test.FAKECore.FileHandling
         {
             TraceHelper.trace(string.Format("Scan for {0} in {1}:", pattern, baseDir));
 
-            var list =
-                FileSetHelper.Scan(
-                    FileSetHelper.SetBaseDir(baseDir,
-                                             FileSetHelper.Include(pattern))).ToList();
+            var list = FileSystem.SetBaseDir(baseDir, FileSystem.Include(pattern)).ToList();
             foreach (var file in list)
                 TraceHelper.trace(string.Format("  - {0}", file));
             return list;
@@ -127,7 +124,7 @@ namespace Test.FAKECore.FileHandling
         /// <returns></returns>
         public static int ScanCount(string pattern)
         {
-            return ScanCount(pattern, FileSetHelper.DefaultBaseDir);
+            return ScanCount(pattern, Path.GetFullPath("."));
         }
 
         /// <summary>

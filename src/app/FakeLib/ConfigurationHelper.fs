@@ -2,38 +2,80 @@
 /// Contains functions which allow to read and write config files.
 module Fake.ConfigurationHelper
     
-open System.IO
 open System.Xml
-open System.Linq
 open System.Xml.Linq
-open System.Xml.XPath
+open System.Xml.Xsl
 
-/// Reads a config file from the given file name
-let readConfig fileName =
-    use fileStream = File.OpenRead(fileName) 
-    let configElement = XElement.Load fileStream
-    fileStream.Close()
-    configElement
+/// Reads a config file into an XmlDocument.
+/// ## Parameters
+///  - `fileName` - The file name of the config file.
+let readConfig (fileName:string) = 
+    let xmlDocument = new XmlDocument()
+    xmlDocument.Load fileName
+    xmlDocument
 
-let private getElement config xpath =
-    (Extensions.XPathSelectElement(config, xpath))
+/// Writes an XmlDocument to a config file.
+/// ## Parameters
+///  - `fileName` - The file name of the config file.
+///  - `config` - The XmlDocument representing the config.
+let writeConfig (fileName:string) (config:XmlDocument) = config.Save fileName 
 
 /// Reads a config file from the given file name, replaces an attribute using the given xPath and writes it back.
-let updateConfigSetting fileName xpath attribute value =
-    let config = readConfig fileName
-    let node = getElement config xpath
-    if node = null then 
-        failwithf "Could not find node addressed by %s in file %s" xpath fileName
+/// ## Parameters
+///  - `xpath` - An XPath term which can be used to replace the attribute.
+///  - `attribute` - The attribute name for which the value should be replaced.
+///  - `value` - The new attribute value.
+///  - `config` - The XElement representing the config.
+let updateConfig xpath attribute value (config:XmlDocument) =
+    let node = config.SelectSingleNode xpath :?> XmlElement
+    if node = null then
+        failwithf "Could not find node addressed by %s" xpath
     else
-        let attr = node.Attribute(XName.Get(attribute)) 
-        attr.Value <- value           
-        use fs = File.Open(fileName, FileMode.Truncate, FileAccess.Write)
-        config.Save(fs)
+        node.SetAttribute(XName.Get(attribute).ToString(), value) 
+    config
+
+/// Reads a config file from the given file name, replaces an attribute using the given xPath and writes it back.
+/// ## Parameters
+///  - `fileName` - The file name of the config file.
+///  - `xpath` - An XPath term which can be used to replace the attribute.
+///  - `attribute` - The attribute name for which the value should be replaced.
+///  - `value` - The new attribute value.
+let updateConfigSetting fileName xpath attribute value =
+    readConfig fileName
+    |> updateConfig xpath attribute value 
+    |> writeConfig fileName
 
 /// Reads a config file from the given file name, replaces the app setting value and writes it back.
-let updateAppSetting key value file =
-    updateConfigSetting file ("appSettings/add[@key='" + key + "']") "value" value
+/// ## Parameters
+///  - `key` - The AppSettings attribute key name for which the value should be replaced.
+///  - `value` - The new AppSettings attribute value.
+///  - `fileName` - The file name of the config file.
+///
+/// ## Sample
+///
+///     updateAppSetting "DatabaseName" targetDatabase (navServicePath @@ "CustomSettings.config")
+let updateAppSetting key value fileName =
+    updateConfigSetting fileName ("//appSettings/add[@key='" + key + "']") "value" value
 
-/// Reads a config file from the given file name, replaces the connection string value and writes it back.        
-let updateConnectionString connectionStringKey value file =
-    updateConfigSetting file ("connectionStrings/add[@name='" + connectionStringKey + "']") "connectionString" value
+/// Reads a config file from the given file name, replaces the connection string value and writes it back.   
+/// ## Parameters
+///  - `connectionStringKey` - The connection string key name for which the value should be replaced.
+///  - `value` - The new connection string value.
+///  - `fileName` - The file name of the config file.     
+let updateConnectionString connectionStringKey value fileName =
+    updateConfigSetting fileName ("//connectionStrings/add[@name='" + connectionStringKey + "']") "connectionString" value
+
+/// Applies a Xsl Stylesheet to a config file and writes it back.
+/// ## Parameters
+///  - `xsl` - The Xsl stylesheet to apply.
+///  - `fileName` - The file name of the config file.
+///
+/// ## Sample
+///
+///     applyXslOnConfig (navServicePath @@ DEV.xsl) (navServicePath @@ "CustomSettings.config")
+let applyXslOnConfig (xsl:string) fileName =
+    let xslDoc = new XslCompiledTransform()
+    xslDoc.Load xsl
+    readConfig fileName
+    |> Fake.XMLHelper.XslTransform xslDoc
+    |> writeConfig fileName

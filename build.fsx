@@ -1,15 +1,15 @@
 #I @"tools/FAKE/tools/"
 #r @"FakeLib.dll"
 
-#I "./tools/FSharp.Formatting/lib/net40"
+#I "tools/FSharp.Formatting/lib/net40"
+#I "tools/Microsoft.AspNet.Razor/lib/net40"
+#I "tools/RazorEngine/lib/net40"
 #r "System.Web.dll"
 #r "FSharp.Markdown.dll"
 #r "FSharp.CodeFormat.dll"
 #r "FSharp.Literate.dll"
 #r "FSharp.MetadataFormat.dll"
-#I "./tools/Microsoft.AspNet.Razor/lib/net40"
 #r "System.Web.Razor.dll"
-#I "./tools/RazorEngine/lib/net40"
 #r "RazorEngine.dll"
 
 open Fake
@@ -23,7 +23,17 @@ let projectSummary = "FAKE - F# Make - Get rid of the noise in your build script
 let projectDescription = "FAKE - F# Make - is a build automation tool for .NET. Tasks and dependencies are specified in a DSL which is integrated in F#."
 let authors = ["Steffen Forkmann"; "Mauricio Scheffer"; "Colin Bull"]
 let mail = "forkmann@gmx.de"
-let homepage = "http://github.com/forki/fake"
+
+let packages = 
+    ["FAKE.Core",projectDescription
+     "FAKE.Gallio",projectDescription + " Extensions for Gallio"
+     "FAKE.IIS",projectDescription + " Extensions for IIS"
+     "FAKE.SQL",projectDescription + " Extensions for SQL Server"
+     "FAKE.Experimental",projectDescription + " Experimental Extensions"
+     "FAKE.Deploy.Lib",projectDescription + " Extensions for FAKE Deploy"
+     projectName,projectDescription + " This package bundles all extensions."]
+
+let buildVersion = if isLocalBuild then "0.0.1" else buildVersion
   
 let buildDir = "./build"
 let testDir = "./test"
@@ -35,9 +45,10 @@ let reportDir = "./report"
 let deployZip = deployDir @@ sprintf "%s-%s.zip" projectName buildVersion
 let packagesDir = "./packages"
 
-let isLinux =
-    int System.Environment.OSVersion.Platform |> fun p ->
-        (p = 4) || (p = 6) || (p = 128)
+let additionalFiles = [
+    "License.txt"
+    "README.markdown"
+    "help/changelog.md"]
 
 // Targets
 Target "Clean" (fun _ -> CleanDirs [buildDir; testDir; deployDir; docsDir; apidocsDir; nugetDir; reportDir])
@@ -53,47 +64,44 @@ Target "CopyFSharpFiles" (fun _ ->
 open Fake.AssemblyInfoFile
 
 Target "SetAssemblyInfo" (fun _ ->
-    CreateFSharpAssemblyInfo "./src/app/FAKE/AssemblyInfo.fs"
-        [Attribute.Title "FAKE - F# Make Command line tool"
-         Attribute.Guid "fb2b540f-d97a-4660-972f-5eeff8120fba"
+    let common = [
          Attribute.Product "FAKE - F# Make"
          Attribute.Version buildVersion
+         Attribute.InformationalVersion buildVersion
          Attribute.FileVersion buildVersion]
+    
+    [Attribute.Title "FAKE - F# Make Command line tool"
+     Attribute.Guid "fb2b540f-d97a-4660-972f-5eeff8120fba"] @ common
+    |> CreateFSharpAssemblyInfo "./src/app/FAKE/AssemblyInfo.fs"
+    
+    [Attribute.Title "FAKE - F# Make Deploy tool"
+     Attribute.Guid "413E2050-BECC-4FA6-87AA-5A74ACE9B8E1"] @ common
+    |> CreateFSharpAssemblyInfo "./src/app/Fake.Deploy/AssemblyInfo.fs"
 
-    CreateFSharpAssemblyInfo "./src/app/Fake.Deploy/AssemblyInfo.fs"
-        [Attribute.Title "FAKE - F# Make Deploy tool"
-         Attribute.Guid "413E2050-BECC-4FA6-87AA-5A74ACE9B8E1"
-         Attribute.Product "FAKE - F# Make"
-         Attribute.Version buildVersion
-         Attribute.FileVersion buildVersion]
+    [Attribute.Title "FAKE - F# Make Deploy Web App"
+     Attribute.Guid "2B684E7B-572B-41C1-86C9-F6A11355570E"] @ common
+    |> CreateFSharpAssemblyInfo "./src/deploy.web/Fake.Deploy.Web.App/AssemblyInfo.fs"
+    
+    [Attribute.Title "FAKE - F# Make Deploy Web"
+     Attribute.Guid "27BA7705-3F57-47BE-B607-8A46B27AE876"] @ common
+    |> CreateCSharpAssemblyInfo "./src/deploy.web/Fake.Deploy.Web/AssemblyInfo.cs"
+    
+    [Attribute.Title "FAKE - F# Make Deploy Lib"
+     Attribute.Guid "AA284C42-1396-42CB-BCAC-D27F18D14AC7"] @ common
+    |> CreateFSharpAssemblyInfo "./src/app/Fake.Deploy.Lib/AssemblyInfo.fs"
+    
+    [Attribute.Title "FAKE - F# Make Lib"
+     Attribute.InternalsVisibleTo "Test.FAKECore"
+     Attribute.Guid "d6dd5aec-636d-4354-88d6-d66e094dadb5"] @ common
+    |> CreateFSharpAssemblyInfo "./src/app/FakeLib/AssemblyInfo.fs"
+    
+    [Attribute.Title "FAKE - F# Make SQL Lib"
+     Attribute.Guid "A161EAAF-EFDA-4EF2-BD5A-4AD97439F1BE"] @ common
+    |> CreateFSharpAssemblyInfo "./src/app/Fake.SQL/AssemblyInfo.fs"
 
-    CreateFSharpAssemblyInfo "./src/deploy.web/Fake.Deploy.Web.App/AssemblyInfo.fs"
-        [Attribute.Title "FAKE - F# Make Deploy Web App"
-         Attribute.Guid "2B684E7B-572B-41C1-86C9-F6A11355570E"
-         Attribute.Product "FAKE - F# Make"
-         Attribute.Version buildVersion
-         Attribute.FileVersion buildVersion]
-
-    CreateFSharpAssemblyInfo "./src/deploy.web/Fake.Deploy.Web/AssemblyInfo.cs"
-        [Attribute.Title "FAKE - F# Make Deploy Web"
-         Attribute.Guid "27BA7705-3F57-47BE-B607-8A46B27AE876"
-         Attribute.Product "FAKE - F# Make"
-         Attribute.Version buildVersion
-         Attribute.FileVersion buildVersion]
-
-    CreateFSharpAssemblyInfo "./src/app/FakeLib/AssemblyInfo.fs"
-        [Attribute.Title "FAKE - F# Make Lib"
-         Attribute.Guid "d6dd5aec-636d-4354-88d6-d66e094dadb5"
-         Attribute.Product "FAKE - F# Make"
-         Attribute.Version buildVersion
-         Attribute.FileVersion buildVersion]
-
-    CreateFSharpAssemblyInfo "./src/app/Fake.SQL/AssemblyInfo.fs"
-        [Attribute.Title "FAKE - F# Make SQL Lib"
-         Attribute.Guid "A161EAAF-EFDA-4EF2-BD5A-4AD97439F1BE"
-         Attribute.Product "FAKE - F# Make"
-         Attribute.Version buildVersion
-         Attribute.FileVersion buildVersion]
+    [Attribute.Title "FAKE - F# Make Experimental Lib"
+     Attribute.Guid "5AA28AED-B9D8-4158-A594-32FE5ABC5713"] @ common
+    |> CreateFSharpAssemblyInfo "./src/app/Fake.Experimental/AssemblyInfo.fs"
 )
 
 Target "BuildSolution" (fun _ ->        
@@ -107,13 +115,21 @@ Target "GenerateDocs" (fun _ ->
     let projInfo =
       [ "page-description", "FAKE - F# Make"
         "page-author", (separated ", " authors)
-        "github-link", "https://github.com/fsharp/FAKE"
+        "project-author", (separated ", " authors)
+        "github-link", "http://github.com/fsharp/fake"
+        "project-github", "http://github.com/fsharp/fake"
+        "project-nuget", "https://www.nuget.org/packages/FAKE"
+        "root", "http://fsharp.github.io/FAKE"
         "project-name", "FAKE - F# Make" ]
 
     Literate.ProcessDirectory (source, template, docsDir, replacements = projInfo)
 
     if isLocalBuild then  // TODO: this needs to be fixed in FSharp.Formatting
-        MetadataFormat.Generate ( "./build/FakeLib.dll", apidocsDir, "./help/templates/reference/")
+        MetadataFormat.Generate ( 
+          "./build/FakeLib.dll" :: (!! "./build/**/Fake.*.dll" |> Seq.toList), 
+          apidocsDir, 
+          ["./help/templates/"; "./help/templates/reference/"], 
+          parameters = projInfo)
 
     WriteStringToFile false "./docs/.nojekyll" ""
 
@@ -122,68 +138,79 @@ Target "GenerateDocs" (fun _ ->
 )
 
 Target "CopyLicense" (fun _ -> 
-    ["License.txt"
-     "README.markdown"
-     "help/changelog.md"]
-       |> CopyTo buildDir
+    CopyTo buildDir additionalFiles
 )
 
 Target "BuildZip" (fun _ ->     
-    !+ (buildDir @@ @"**/*.*") 
-    -- "*.zip" 
-    -- "**/*.pdb"
-      |> Scan
+    !! (buildDir @@ @"**/*.*")
+      -- "*.zip"
+      -- "**/*.pdb"
       |> Zip buildDir deployZip
 )
 
 Target "Test" (fun _ ->
-    (* Temporary disable tests on *nix, bug # 122 *)
-    if not isLinux then
-        let MSpecVersion = GetPackageVersion packagesDir "Machine.Specifications"
-        let mspecTool = sprintf @"%s/Machine.Specifications.%s/tools/mspec-clr4.exe" packagesDir MSpecVersion
-
-        !! (testDir @@ "Test.*.dll") 
-        |> MSpec (fun p -> 
-                {p with
-                    ToolPath = mspecTool
-                    ExcludeTags = ["HTTP"]
-                    HtmlOutputDir = reportDir})
+    !! (testDir @@ "Test.*.dll") 
+    |> MSpec (fun p -> 
+            {p with
+                ExcludeTags = ["HTTP"]
+                HtmlOutputDir = reportDir})
 )
 
 Target "ZipDocumentation" (fun _ -> 
-    (* Temporary disable tests on *nix, bug # 122 *)
-    if not isLinux then
-        !! (docsDir @@ @"**/*.*")  
-           |> Zip docsDir (deployDir @@ sprintf "Documentation-%s.zip" buildVersion)
+    !! (docsDir @@ @"**/*.*")  
+       |> Zip docsDir (deployDir @@ sprintf "Documentation-%s.zip" buildVersion)
 )
 
 Target "CreateNuGet" (fun _ -> 
-    (* Temporary disable tests on *nix, bug # 122 *)
-    if not isLinux then
+    for package,description in packages do            
         let nugetDocsDir = nugetDir @@ "docs"
         let nugetToolsDir = nugetDir @@ "tools"
 
-        CopyDir nugetDocsDir docsDir allFiles  
-        CopyDir nugetToolsDir buildDir allFiles
-        CopyDir nugetToolsDir @"./lib/fsi" allFiles
-        DeleteFile (nugetToolsDir @@ "Gallio.dll")
+        CleanDir nugetDocsDir
+        CleanDir nugetToolsDir
+
+        DeleteFile "./build/FAKE.Gallio/Gallio.dll"
+        
+        match package with
+        | p when p = projectName ->
+            !! (buildDir @@ "**/*.*") |> Copy nugetToolsDir 
+            CopyDir nugetToolsDir @"./lib/fsi" allFiles
+            CopyDir nugetDocsDir docsDir allFiles
+        | p when p = "FAKE.Core" ->
+            !! (buildDir @@ "*.*") |> Copy nugetToolsDir
+            CopyDir nugetToolsDir @"./lib/fsi" allFiles
+            CopyDir nugetDocsDir docsDir allFiles
+        | _ ->
+            CopyDir nugetToolsDir (buildDir @@ package) allFiles                
+            CopyTo nugetToolsDir additionalFiles
+        !! (nugetToolsDir @@ "*.pdb") |> DeleteFiles
+
+        (SemVerHelper.parse buildVersion).Patch.ToString()
+        |> WriteStringToFile false (nugetToolsDir @@ "PatchVersion.txt")
 
         NuGet (fun p -> 
             {p with
                 Authors = authors
-                Project = projectName
-                Description = projectDescription                               
+                Project = package
+                Description = description                               
                 OutputPath = nugetDir
+                Summary = projectSummary
+                Dependencies =
+                    if package <> "FAKE.Core" && package <> projectName then
+                      ["FAKE.Core", RequireExactly (NormalizeVersion buildVersion)]
+                    else p.Dependencies
                 AccessKey = getBuildParamOrDefault "nugetkey" ""
-                Publish = hasBuildParam "nugetkey" }) "fake.nuspec"
+                Publish = hasBuildParam "nugetkey"
+                ToolPath = "./tools/NuGet/nuget.exe"  }) "fake.nuspec"
 )
 
-Target "UpdateDocs" (fun _ ->
+Target "ReleaseDocs" (fun _ ->
     CleanDir "gh-pages"
     CommandHelper.runSimpleGitCommand "" "clone -b gh-pages --single-branch git@github.com:fsharp/FAKE.git gh-pages" |> printfn "%s"
     
     fullclean "gh-pages"
     CopyRecursive "docs" "gh-pages" true |> printfn "%A"
+    CopyFile "gh-pages" "./Samples/FAKE-Calculator.zip"
     CommandHelper.runSimpleGitCommand "gh-pages" "add . --all" |> printfn "%s"
     CommandHelper.runSimpleGitCommand "gh-pages" (sprintf "commit -m \"Update generated documentation %s\"" buildVersion) |> printfn "%s"
     Branches.push "gh-pages"    
@@ -197,14 +224,14 @@ Target "Default" DoNothing
     ==> "CopyFSharpFiles"
     =?> ("SetAssemblyInfo",not isLocalBuild ) 
     ==> "BuildSolution"
-    ==> "Test"
+    =?> ("Test",not isLinux )
     ==> "CopyLicense"
     ==> "BuildZip"
-    ==> "GenerateDocs"
-    ==> "ZipDocumentation"
-    ==> "CreateNuGet"
+    =?> ("GenerateDocs",    not isLinux )
+    =?> ("ZipDocumentation",not isLinux )
+    =?> ("CreateNuGet",     not isLinux )
     ==> "Default"
-    ==> "UpdateDocs"
+    ==> "ReleaseDocs"
 
 // start build
 RunTargetOrDefault "Default"

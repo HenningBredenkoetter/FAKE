@@ -30,7 +30,7 @@ let setDirectoryReadOnly readOnly (dir:DirectoryInfo) =
 let SetDirReadOnly readOnly dir =
     recursively (setDirectoryReadOnly readOnly) (fun file -> file.IsReadOnly <- readOnly) dir
   
-/// Sets all files in the directory readonly.
+/// Sets all given files readonly.
 let SetReadOnly readOnly (files: string seq) =
     files
     |> Seq.iter (fun file ->
@@ -47,9 +47,8 @@ let DeleteDir path =
     let dir = directoryInfo path
     if dir.Exists then 
         // set all files readonly = false
-        !+ "/**/*.*"
+        !! "/**/*.*"
           |> SetBaseDir dir.FullName
-          |> Scan
           |> (SetReadOnly false)
       
         logfn "Deleting %s" dir.FullName
@@ -107,8 +106,8 @@ let (|FileInfoNameSections|) (f:FileInfo) = (f.Name,f.Extension,f.FullName)
 /// Copies a single file to a relative subfolder of the target.
 /// ## Parameters
 /// 
-///  - `targets` - The target directory
-///  - `fileNames` - The fileName
+///  - `target` - The target directory
+///  - `fileName` - The fileName
 let CopyFileIntoSubFolder target fileName =
     let relative = (toRelativePath fileName).TrimStart '.'
     let fi = fileInfo fileName
@@ -123,8 +122,8 @@ let CopyFileIntoSubFolder target fileName =
 /// Copies a single file to the target and overwrites the existing file.
 /// ## Parameters
 /// 
-///  - `targets` - The target directory or file.
-///  - `fileNames` - The FileName.
+///  - `target` - The target directory or file.
+///  - `fileName` - The FileName.
 let CopyFile target fileName =
     let fi = fileSystemInfo fileName
     match fi with
@@ -142,7 +141,7 @@ let CopyFile target fileName =
 /// Copies the files to the target.
 /// ## Parameters
 /// 
-///  - `targets` - The target directory.
+///  - `target` - The target directory.
 ///  - `files` - The original file names as a sequence.
 let Copy target files = 
     files      
@@ -197,7 +196,7 @@ let Rename target fileName = (fileInfo fileName).MoveTo target
 /// ## Parameters
 /// 
 ///  - `target` - The target directory.
-///  - `iles` - List of files to copy.
+///  - `files` - List of files to copy.
 let SilentCopy target files =
     files
     |> Seq.iter (fun file ->
@@ -229,7 +228,7 @@ let allFiles (path:string) = true
 /// ## Parameters
 /// 
 ///  - `target` - The target directory.
-///  - `files` - The source directory.
+///  - `source` - The source directory.
 ///  - `filterFile` - A file filter predicate.
 let CopyDir target source filterFile =
     CreateDir target
@@ -268,10 +267,10 @@ let CleanDir path =
     // set writeable
     File.SetAttributes(path,FileAttributes.Normal)        
 
-/// Clean multiple directories
+/// Cleans multiple directories
 let CleanDirs dirs = Seq.iter CleanDir dirs
 
-/// Delete multiple directories
+/// Deletes multiple directories
 let DeleteDirs dirs = Seq.iter DeleteDir dirs
 
 /// Reads a csv file line by line
@@ -426,3 +425,10 @@ let WriteConfigFile configFileName parameters =
 
     for (key,value) in parameters do
         streamWriter.WriteLine("{0};{1}", key, value)
+
+/// Replaces all occurences of the patterns in the given files with the given replacements.
+/// ## Parameters
+///
+///  - `replacements` - A sequence of tuples with the patterns and the replacements.
+///  - `files` - The files to process.
+let ReplaceInFiles replacements files = processTemplates replacements files

@@ -10,7 +10,7 @@ open System.Reflection
 let fakePath = productName.GetType().Assembly.Location
        
 /// Gets the FAKE version no.
-let fakeVersion = productName.GetType().Assembly.GetName().Version
+let fakeVersion = AssemblyVersionInformation.Version
     
 let mutable private openTags = []
 
@@ -82,7 +82,7 @@ let openTag tag =  openTags <- tag :: openTags
 let closeTag tag =
     match openTags with
     | x::rest when x = tag -> openTags <- rest
-    | _ -> failwithf "Invalid tag structure: %A" openTags
+    | _ -> failwithf "Invalid tag structure. Trying to close %s tag but stack is %A" tag openTags
 
     CloseTag tag |> postMessage
   
@@ -127,4 +127,4 @@ let logToConsole(msg, eventLogEntry : System.Diagnostics.EventLogEntryType) =
     | System.Diagnostics.EventLogEntryType.Information -> TraceMessage (msg, true)
     | System.Diagnostics.EventLogEntryType.Warning -> ImportantMessage msg
     | _ -> LogMessage (msg, true)
-    |> console.Write    
+    |> console.Write

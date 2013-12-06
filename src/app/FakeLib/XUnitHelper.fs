@@ -8,7 +8,7 @@ open System.Text
 
 /// The xUnit parameter type
 type XUnitParams = { 
-      /// The path to the xunit.console.exe - FAKE will scan all subfolders to find it automatically.
+      /// The path to the xunit.console.clr4.exe - FAKE will scan all subfolders to find it automatically.
       ToolPath: string
       /// The file name of the config file (optional).
       ConfigFile :string
@@ -31,7 +31,7 @@ type XUnitParams = {
 
 /// The xUnit default parameters
 let XUnitDefaults =
-    { ToolPath = findToolInSubPath "xunit.console.exe" (currentDirectory @@ "tools" @@ "xUnit")
+    { ToolPath = findToolInSubPath "xunit.console.clr4.exe" (currentDirectory @@ "tools" @@ "xUnit")
       ConfigFile = null;
       HtmlOutput = false;
       NUnitXmlOutput = false;
@@ -60,28 +60,30 @@ let xUnit setParams assemblies =
     let parameters = setParams XUnitDefaults
     assemblies
       |> Seq.iter (fun assembly ->
-          let commandLineBuilder =          
-              let fi = fileInfo assembly
-              let name = fi.Name
+          
+          let fi = fileInfo assembly
+          let name = fi.Name
 
-              let dir = 
-                if isNullOrEmpty parameters.OutputDir then String.Empty else
-                Path.GetFullPath parameters.OutputDir
-
+          let dir = 
+              if isNullOrEmpty parameters.OutputDir then String.Empty else
+              Path.GetFullPath parameters.OutputDir
+               
+          let args =
               new StringBuilder()
                 |> appendFileNamesIfNotNull [assembly]
                 |> appendIfFalse parameters.ShadowCopy "/noshadow"
                 |> appendIfTrue (buildServer = TeamCity) "/teamcity"
                 |> appendIfFalse parameters.Verbose "/silent" 
-                |> appendIfTrue parameters.XmlOutput (sprintf "/xml\" \"%s%s.xml" dir name) 
-                |> appendIfTrue parameters.HtmlOutput (sprintf "/html\" \"%s%s.html" dir name) 
-                |> appendIfTrue parameters.NUnitXmlOutput (sprintf "/nunit\" \"%s%s.xml" dir name)                                
-      
-          if not (execProcess3 (fun info ->  
+                |> appendIfTrue parameters.XmlOutput (sprintf "/xml\" \"%s" (dir @@ (name + ".xml")))
+                |> appendIfTrue parameters.HtmlOutput (sprintf "/html\" \"%s" (dir @@ (name + ".html")))
+                |> appendIfTrue parameters.NUnitXmlOutput (sprintf "/nunit\" \"%s" (dir @@ (name + ".xml")))                              
+                |> toText
+
+          if 0 <> ExecProcess (fun info ->  
               info.FileName <- parameters.ToolPath
               info.WorkingDirectory <- parameters.WorkingDir
-              info.Arguments <- commandLineBuilder.ToString()) parameters.TimeOut)
+              info.Arguments <- args) parameters.TimeOut
           then
-              failwith "xUnit test failed.")
+              failwithf "xUnit test failed on %s." details)
                   
     traceEndTask "xUnit" details

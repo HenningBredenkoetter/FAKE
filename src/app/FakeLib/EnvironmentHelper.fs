@@ -18,7 +18,7 @@ type EnvironTarget = EnvironmentVariableTarget
 let environVar name = Environment.GetEnvironmentVariable name
 
 /// Combines two path strings using Path.Combine
-let inline combinePaths path1 (path2:string) = Path.Combine(path1,path2.TrimStart [|'\\'|])
+let inline combinePaths path1 (path2:string) = Path.Combine(path1,path2.TrimStart [|'\\'; '/'|])
 
 /// Combines two path strings using Path.Combine
 let inline (@@) path1 path2 = combinePaths path1 path2
@@ -58,8 +58,8 @@ let inline getBuildParam name = getBuildParamOrDefault name String.Empty
 let ProgramFiles = Environment.GetFolderPath Environment.SpecialFolder.ProgramFiles
 
 /// The path of Program Files (x86)
-/// It seems this covers all cases where PROCESSOR_ARCHITECTURE may misreport and the case where the other variable 
-/// PROCESSOR_ARCHITEW6432 can be null
+/// It seems this covers all cases where PROCESSOR\_ARCHITECTURE may misreport and the case where the other variable 
+/// PROCESSOR\_ARCHITEW6432 can be null
 let ProgramFilesX86 =
     let wow64 = (environVar "PROCESSOR_ARCHITEW6432")
     let globalArch = (environVar "PROCESSOR_ARCHITECTURE")
@@ -75,9 +75,21 @@ let SystemRoot = environVar "SystemRoot"
 /// Determines if the current system is an Unix system
 let isUnix = Environment.OSVersion.Platform = PlatformID.Unix
 
+/// Determines if the current system is a MacOs system
+let isMacOS = Environment.OSVersion.Platform = PlatformID.MacOSX
+
+/// Determines if the current system is a Linux system
+let isLinux =
+    int System.Environment.OSVersion.Platform |> fun p ->
+        (p = 4) || (p = 6) || (p = 128)
+
+/// Determines if the current system is a mono system
+/// Todo: Detect mono on windows
+let isMono = isLinux || isUnix || isMacOS
+
 /// Modifies the ProcessStartInfo according to the platform semantics
 let platformInfoAction (psi:ProcessStartInfo) =
-    if isUnix && psi.FileName.EndsWith ".exe" then
+    if isMono && psi.FileName.EndsWith ".exe" then
         psi.Arguments <- psi.FileName + " " + psi.Arguments
         psi.FileName <- "mono"  
 
@@ -157,7 +169,21 @@ type MachineDetails = {
     MachineName : string
     NETFrameworks : seq<string>
     UserDomainName : string
+    AgentVersion: string
+    DriveInfo: seq<string>
 }
+
+/// Retrieves information about the hard drives
+let getDrivesInfo() =
+    Environment.GetLogicalDrives()
+    |> Seq.map(fun d -> IO.DriveInfo(d))
+    |> Seq.filter(fun d -> d.IsReady)
+    |> Seq.map(fun d -> 
+        sprintf "%s has %0.1fGB free of %0.1fGB"
+            (d.Name.Replace(":\\", "")) 
+            (Convert.ToDouble(d.TotalFreeSpace) / (1024.*1024.*1024.))
+            (Convert.ToDouble(d.TotalSize) / (1024.*1024.*1024.))
+    )
 
 /// Retrieves lots of machine specific information like machine name, processor count etc.
 let getMachineEnvironment() = 
@@ -168,5 +194,7 @@ let getMachineEnvironment() =
         MachineName = Environment.MachineName
         NETFrameworks = getInstalledDotNetFrameworks()
         UserDomainName = Environment.UserDomainName
+        AgentVersion = sprintf "%A" ((System.Reflection.Assembly.GetAssembly(typedefof<MachineDetails>)).GetName().Version)
+        DriveInfo = getDrivesInfo()
      }  
      
